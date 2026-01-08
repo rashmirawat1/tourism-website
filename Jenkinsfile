@@ -28,8 +28,14 @@ pipeline {
         stage('Run Tests') {
             steps {
                 sh '''
-                npx html-validate index.html
-                npx stylelint "css/**/*.css"
+                npx html-validator --file=index.html --format=text
+                docker build -t tourism-test:latest .
+		docker run -d -p 9000:80 --name tourism-test-container tourism-test:latest
+		sleep 10
+		curl -f http://localhost:9000 || exit 1
+		npx broken-link-checker http://localhost:9000 --recursive --exclude-external
+		docker stop tourism-test-container
+                docker rm tourism-test-container
                 '''
             }
         }
