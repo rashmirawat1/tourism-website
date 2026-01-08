@@ -1,7 +1,7 @@
 pipeline {
     agent any
 
-    tools {
+    ools {
 	nodejs 'NodeJS'
     }
 
