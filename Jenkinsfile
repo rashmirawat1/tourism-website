@@ -1,11 +1,20 @@
 pipeline {
     agent any
 
+    options {
+        skipDefaultCheckout(true) // so Jenkins doesn’t auto-checkout before clean
+    }    
+
     tools {
 	nodejs 'NodeJS'
     }
 
     stages {
+	stage('Cleanup') {
+            steps {
+                cleanWs()         
+            }
+        }
         stage('Checkout Code') {
             steps {
                 checkout scm
