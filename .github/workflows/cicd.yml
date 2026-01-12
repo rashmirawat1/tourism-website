@@ -42,12 +42,7 @@ jobs:
                 docker stop tourism-web || true
                 docker rm tourism-web || true
             - name: Run fresh container
-              run: 
-                docker run -d \
-                --name tourism-web \
-                -p 80:80 \
-                --restart unless-stopped \
-                ${{ secrets.DOCKER_USERNAME }}/tourism-website:latest
+              run: docker run -d --name tourism-web -p 80:80 ${{ secrets.DOCKER_USERNAME }}/tourism-website:latest
             - name: Checking deployment
               run: 
                 docker ps | grep tourism-web
