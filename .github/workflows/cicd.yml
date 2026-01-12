@@ -1,0 +1,55 @@
+name: CI-CD pipeline
+
+on:
+    push:
+        branches:
+            - main
+
+jobs: 
+    build-and-push:
+        runs-on: ubuntu-latest
+        steps:
+            - name: checkout code
+              uses: actions/checkout@v4
+            - name: Login to Docker hub
+              run: docker login -u ${{secrets.DOCKER_USERNAME}} -p ${{secrets.DOCKER_PASSWORD}}
+            - name: Build image
+              run: docker build -t ${{ secrets.DOCKER_USERNAME }}/tourism-website:latest .
+            - name: Push Docker image
+              run: docker push ${{ secrets.DOCKER_USERNAME }}/tourism-website:latest
+    deploy:
+        needs: build-and-push
+        runs-on: ubuntu-latest
+        steps:
+            - name: Deploy to EC2 via SSH
+              env:
+                EC2_HOST:     ${{ secrets.EC2_HOST }}
+                EC2_USER:     ${{ secrets.EC2_USERNAME }}
+                SSH_KEY:      ${{ secrets.EC2_SSH_KEY }}
+              run: 
+                mkdir -p ~/.ssh
+                echo "$SSH_KEY" > ~/.ssh/ec2_key
+                chmod 600 ~/.ssh/ec2_key
+                ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts || true
+                ssh -i ~/.ssh/ec2_key $EC2_USER@$EC2_HOST
+                echo "Connected to EC2 - starting deployment..."
+            - name: Checking Docker is running 
+              run: sudo systemctl start docker || true
+            - name: Pull latest image from Docker hub
+              run: docker pull ${{ secrets.DOCKER_USERNAME }}/tourism-website:latest
+            - name : Stop and remove old containers
+              run: 
+                docker stop tourism-web || true
+                docker rm tourism-web || true
+            - name: Run fresh container
+              run: 
+                docker run -d \
+                --name tourism-web \
+                -p 80:80 \
+                --restart unless-stopped \
+                ${{ secrets.DOCKER_USERNAME }}/tourism-website:latest
+            - name: Checking deployment
+              run: 
+                docker ps | grep tourism-web
+                echo "Deployment finished ✓"
+            
