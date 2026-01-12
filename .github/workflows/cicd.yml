@@ -26,40 +26,35 @@ jobs:
                 EC2_HOST:     ${{ secrets.EC2_HOST }}
                 EC2_USER:     ${{ secrets.EC2_USERNAME }}
                 SSH_KEY:      ${{ secrets.EC2_SSH_KEY }}
-              run: 
-                # Prepare SSH key
+              run: |
+                
                 mkdir -p ~/.ssh
                 echo "$SSH_KEY" > ~/.ssh/ec2_key
                 chmod 600 ~/.ssh/ec2_key
 
-                # Disable strict host key checking (first connection friendly)
-                # Also add -o for better compatibility
-            - name: Connect to EC2 via SSH
-              run:
+                
                 ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts || true
                 ssh -i ~/.ssh/ec2_key $EC2_USER@$EC2_HOST << 'EOF'
-                    echo "Connected to EC2 - ===== Starting deployment on $(date) =====""
-                    # Make sure docker is running
-                    sudo systemctl start docker || true
 
-                    # Pull newest image
-                    docker pull ${{ secrets.DOCKER_USERNAME }}/tourism-website:latest
+                echo "===== Starting deployment on $(date) ====="
 
-                    # Stop & remove old container (ignore errors if not exists)
-                    docker stop tourism-web || true
-                    docker rm tourism-web || true
+                sudo systemctl start docker 2>/dev/null || true
+                sudo systemctl enable docker 2>/dev/null || true
 
-                    # Run fresh container
-                    docker run -d \
-                    --name tourism-web \
-                    -p 80:80 \
-                    --restart unless-stopped \
-                    ${{ secrets.DOCKER_USERNAME }}/tourism-website:latest
+                docker pull ${{ secrets.DOCKER_USERNAME }}/tourism-website:latest
 
-                    echo "Deployment finished ✓"
-                    docker ps | grep tourism-web
+                docker stop tourism-web  >/dev/null 2>&1 || true
+                docker rm tourism-web    >/dev/null 2>&1 || true
+
+                # Start new container
+                docker run -d \
+                --name tourism-web \
+                -p 80:80 \
+                --restart unless-stopped \
+                ${{ secrets.DOCKER_USERNAME }}/tourism-website:latest
+
+                echo "===== Deployment finished ====="
+                echo "Current running containers:"
+                docker ps --format "table {{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}"
 
                 EOF
-                
-            
-            
